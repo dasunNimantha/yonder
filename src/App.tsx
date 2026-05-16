@@ -45,7 +45,6 @@ export function App() {
   const setPendingApproval = useTransferStore((s) => s.setPendingApproval);
 
   const loadSettings = useSettingsStore((s) => s.load);
-  const settings = useSettingsStore((s) => s.settings);
   const addToast = useToastStore((s) => s.addToast);
 
   const [transfersOpen, setTransfersOpen] = useState(false);
@@ -334,12 +333,16 @@ export function App() {
       <div className="app-toolbar">
         <div className="app-toolbar-left">
           <Wifi size={14} />
-          <span>
-            Port <strong>{settings?.tcp_port ?? 53317}</strong>
+          <span title={self?.id ?? ""}>
+            You: <strong>{self?.name ?? "Yonder"}</strong>
           </span>
           <span className="app-toolbar-dot" />
           <BadgeCheck size={14} />
-          <span title={self?.id ?? ""}>You: {self?.name ?? "Yonder"}</span>
+          <span title={self?.id ?? ""}>
+            <code className="app-toolbar-id">
+              {self?.id ? `${self.id.slice(0, 8)}\u2026` : "\u2026"}
+            </code>
+          </span>
         </div>
         <button
           className={`app-toolbar-btn ${transfersOpen ? "active" : ""}`}

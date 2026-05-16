@@ -1,43 +1,26 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
-use futures_util::TryStreamExt;
-use reqwest::multipart::{Form, Part};
-use serde::Serialize;
+use iroh::endpoint::{Endpoint, SendStream};
+use iroh::EndpointAddr;
 use tauri::{AppHandle, Emitter};
 use tokio::fs::File;
-use tokio_util::io::ReaderStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+use crate::accept::UploadMeta;
+use crate::identity;
+use crate::net::ALPN;
 use crate::state::{AppState, Peer};
 use crate::transfer::{FileMeta, ProgressEvent, ProgressThrottle, Transfer, TransferStatus};
 
-#[derive(Debug, Clone, Serialize)]
-struct UploadMetaBody {
-    files: Vec<FileMeta>,
-}
-
-/// Probe a peer's `/info` endpoint to sanity-check it's still up before
-/// streaming a large transfer.
-pub async fn probe(peer: &Peer) -> Result<()> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(5))
-        .build()?;
-    let url = format!("http://{}:{}/info", peer.host, peer.port);
-    let resp = client.get(url).send().await?;
-    if !resp.status().is_success() {
-        return Err(anyhow!("peer /info returned {}", resp.status()));
-    }
-    Ok(())
-}
-
-/// Spawn an async task that sends all of `paths` to `peer` and emits
-/// progress events. Returns immediately with the created Transfer id.
+/// Spawn an async task that connects to `peer` over QUIC and streams
+/// every `path` in turn. Returns the new transfer id immediately.
 pub fn spawn_send(
     handle: AppHandle,
     state: AppState,
+    endpoint: Endpoint,
     peer: Peer,
     paths: Vec<PathBuf>,
 ) -> Result<String> {
@@ -63,25 +46,23 @@ pub fn spawn_send(
     state.upsert_transfer(transfer.clone());
     let _ = handle.emit("transfer-added", &transfer);
 
+    let session = transfer_id.clone();
     let handle_for_task = handle.clone();
     let state_for_task = state.clone();
-    let session = transfer_id.clone();
-    let identity = state.identity();
 
     tokio::spawn(async move {
         if let Err(e) = do_send(
             handle_for_task.clone(),
             state_for_task.clone(),
-            peer.clone(),
+            endpoint,
+            peer,
             session.clone(),
-            paths.clone(),
-            metas.clone(),
-            identity.id.clone(),
-            identity.name.clone(),
+            paths,
+            metas,
         )
         .await
         {
-            log::error!("send failed: {e}");
+            log::error!("send failed: {e:#}");
             let _ = state_for_task.update_transfer(&session, |t| {
                 t.status = TransferStatus::Failed;
                 t.error = Some(e.to_string());
@@ -100,15 +81,20 @@ pub fn spawn_send(
 async fn do_send(
     handle: AppHandle,
     state: AppState,
+    endpoint: Endpoint,
     peer: Peer,
     session: String,
     paths: Vec<PathBuf>,
     metas: Vec<FileMeta>,
-    our_id: String,
-    our_name: String,
 ) -> Result<()> {
-    probe(&peer).await?;
+    let endpoint_id = identity::parse_endpoint_id(&peer.id)?;
+    let addr = EndpointAddr::new(endpoint_id);
 
+    log::info!("connecting to {} ({})", peer.name, peer.id);
+    let conn = endpoint.connect(addr, ALPN).await.context("QUIC connect")?;
+    let (mut send, mut recv) = conn.open_bi().await.context("open_bi")?;
+
+    // ── 1. Mark active and send the meta header.
     let _ = state.update_transfer(&session, |t| {
         t.status = TransferStatus::Active;
     });
@@ -116,76 +102,44 @@ async fn do_send(
         let _ = handle.emit("transfer-started", &t);
     }
 
+    let upload_meta = UploadMeta {
+        session: session.clone(),
+        files: metas.clone(),
+    };
+    write_meta(&mut send, &upload_meta).await?;
+
+    // ── 2. Read accept/reject byte from peer.
+    let decision = recv.read_u8().await.context("read accept byte")?;
+    if decision != 1 {
+        return Err(anyhow!("peer rejected transfer"));
+    }
+
+    // ── 3. Stream each file in order.
     let total_bytes: u64 = metas.iter().map(|m| m.size).sum();
     let throttle = Arc::new(ProgressThrottle::new(120));
 
-    let meta_body = UploadMetaBody {
-        files: metas.clone(),
-    };
-    let meta_json = serde_json::to_string(&meta_body)?;
-
-    let mut form = Form::new().part("meta", Part::text(meta_json).mime_str("application/json")?);
-
-    for (path, meta) in paths.iter().zip(metas.iter()) {
-        let file = File::open(path)
-            .await
-            .map_err(|e| anyhow!("could not open {}: {e}", path.display()))?;
-
-        let reader_stream = ReaderStream::new(file);
-        let progress_throttle = Arc::clone(&throttle);
-        let progress_handle = handle.clone();
-        let progress_state = state.clone();
-        let progress_session = session.clone();
-
-        let counting = reader_stream.inspect_ok(move |chunk| {
-            if let Some(bytes_done) = progress_throttle.add(chunk.len() as u64) {
-                let _ = progress_state.update_transfer(&progress_session, |t| {
-                    t.bytes_done = bytes_done;
-                });
-                let _ = progress_handle.emit(
-                    "transfer-progress",
-                    ProgressEvent {
-                        id: progress_session.clone(),
-                        bytes_done,
-                        total_bytes,
-                        status: TransferStatus::Active,
-                    },
-                );
-            }
-        });
-
-        let body = reqwest::Body::wrap_stream(counting);
-        let mime = guess_mime(path);
-        let part = Part::stream_with_length(body, meta.size)
-            .file_name(meta.name.clone())
-            .mime_str(&mime)?;
-        form = form.part("file", part);
+    for (path, file_meta) in paths.iter().zip(metas.iter()) {
+        send_file(
+            &mut send,
+            path,
+            file_meta,
+            &throttle,
+            total_bytes,
+            &session,
+            &state,
+            &handle,
+        )
+        .await?;
     }
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(60 * 60 * 12))
-        .build()?;
+    // Flush + finish before reading the completion ack so the peer
+    // sees the end of the last file.
+    send.finish().context("finish stream")?;
 
-    let url = format!(
-        "http://{}:{}/upload?session={}&sender={}&sender_name={}",
-        peer.host,
-        peer.port,
-        urlencode(&session),
-        urlencode(&our_id),
-        urlencode(&our_name),
-    );
-
-    let resp = client
-        .post(&url)
-        .multipart(form)
-        .send()
-        .await
-        .map_err(|e| anyhow!("send failed: {e}"))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(anyhow!("peer rejected upload ({status}): {body}"));
+    // ── 4. Read the completion byte and any error message.
+    let ok = recv.read_u8().await.context("read completion byte")?;
+    if ok != 0 {
+        return Err(anyhow!("peer reported transfer error"));
     }
 
     let final_bytes = throttle.snapshot();
@@ -213,34 +167,65 @@ async fn do_send(
     Ok(())
 }
 
-fn urlencode(s: &str) -> String {
-    use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
-    utf8_percent_encode(s, NON_ALPHANUMERIC).to_string()
+async fn write_meta(send: &mut SendStream, meta: &UploadMeta) -> Result<()> {
+    let bytes = serde_json::to_vec(meta).context("serialize meta")?;
+    let len: u32 = bytes
+        .len()
+        .try_into()
+        .map_err(|_| anyhow!("meta too large"))?;
+    send.write_u32_le(len).await.context("write meta len")?;
+    send.write_all(&bytes).await.context("write meta body")?;
+    Ok(())
 }
 
-fn guess_mime(path: &std::path::Path) -> String {
-    let ext = path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    match ext.as_str() {
-        "txt" | "md" | "log" => "text/plain",
-        "json" => "application/json",
-        "html" | "htm" => "text/html",
-        "css" => "text/css",
-        "js" | "mjs" => "application/javascript",
-        "pdf" => "application/pdf",
-        "zip" => "application/zip",
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "webp" => "image/webp",
-        "mp4" => "video/mp4",
-        "mov" => "video/quicktime",
-        "mp3" => "audio/mpeg",
-        "wav" => "audio/wav",
-        _ => "application/octet-stream",
+#[allow(clippy::too_many_arguments)]
+async fn send_file(
+    send: &mut SendStream,
+    path: &std::path::Path,
+    meta: &FileMeta,
+    throttle: &Arc<ProgressThrottle>,
+    total_bytes: u64,
+    session: &str,
+    state: &AppState,
+    app: &AppHandle,
+) -> Result<()> {
+    let mut file = File::open(path)
+        .await
+        .with_context(|| format!("open {}", path.display()))?;
+    let mut buf = vec![0u8; 64 * 1024];
+    let mut remaining = meta.size;
+    while remaining > 0 {
+        let want = remaining.min(buf.len() as u64) as usize;
+        let n = file.read(&mut buf[..want]).await.context("file read")?;
+        if n == 0 {
+            return Err(anyhow!(
+                "{} shrank during transfer (expected {} more bytes)",
+                path.display(),
+                remaining
+            ));
+        }
+        send.write_all(&buf[..n]).await.context("stream write")?;
+        remaining -= n as u64;
+
+        if let Some(bytes_done) = throttle.add(n as u64) {
+            let _ = state.update_transfer(session, |t| {
+                t.bytes_done = bytes_done;
+            });
+            let _ = app.emit(
+                "transfer-progress",
+                ProgressEvent {
+                    id: session.to_string(),
+                    bytes_done,
+                    total_bytes,
+                    status: TransferStatus::Active,
+                },
+            );
+        } else {
+            let snap = throttle.snapshot();
+            let _ = state.update_transfer(session, |t| {
+                t.bytes_done = snap;
+            });
+        }
     }
-    .to_string()
+    Ok(())
 }

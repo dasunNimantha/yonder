@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use chrono::Utc;
+use iroh::endpoint::Endpoint;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::client;
@@ -16,6 +17,7 @@ pub fn list_transfers(state: State<'_, AppState>) -> Vec<Transfer> {
 pub fn send_files(
     app: AppHandle,
     state: State<'_, AppState>,
+    endpoint: State<'_, Endpoint>,
     peer_id: String,
     paths: Vec<String>,
 ) -> Result<String, String> {
@@ -27,7 +29,14 @@ pub fn send_files(
         return Err("no files to send".into());
     }
 
-    client::spawn_send(app, state.inner().clone(), peer, paths).map_err(|e| e.to_string())
+    client::spawn_send(
+        app,
+        state.inner().clone(),
+        endpoint.inner().clone(),
+        peer,
+        paths,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

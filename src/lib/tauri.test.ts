@@ -27,11 +27,13 @@ describe("api fallbacks (jsdom mode)", () => {
 
   it("getSettings returns sane defaults", async () => {
     const s = await api.getSettings();
-    expect(s.tcp_port).toBe(53317);
     expect(s.theme).toBe("dark");
     expect(s.auto_accept).toBe(false);
     expect(s.start_minimized).toBe(false);
     expect(s.start_on_login).toBe(false);
+    // secret_key is intentionally an empty string in jsdom fallback —
+    // it only ever gets populated by Rust at first launch.
+    expect(typeof s.secret_key).toBe("string");
   });
 
   it("write commands resolve without throwing in jsdom", async () => {

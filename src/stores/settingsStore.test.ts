@@ -4,10 +4,9 @@ import * as tauriMod from "../lib/tauri";
 import { useSettingsStore } from "./settingsStore";
 
 const baseSettings: tauriMod.Settings = {
-  device_id: "dev-1",
+  secret_key: "ab".repeat(32),
   display_name: "Laptop",
   download_dir: "/tmp",
-  tcp_port: 53317,
   auto_accept: false,
   start_minimized: false,
   start_on_login: false,
@@ -53,7 +52,7 @@ describe("settingsStore", () => {
     const sentArg = spy.mock.calls[0]![0]!;
     expect(sentArg.display_name).toBe("Renamed");
     expect(sentArg.theme).toBe("light");
-    expect(sentArg.device_id).toBe("dev-1");
+    expect(sentArg.secret_key).toBe(baseSettings.secret_key);
 
     expect(useSettingsStore.getState().settings?.display_name).toBe("Renamed");
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");

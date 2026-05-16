@@ -28,6 +28,16 @@
   margin: 0 2px;
 }
 
+.app-toolbar-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
 .app-toolbar-btn {
   display: inline-flex;
   align-items: center;

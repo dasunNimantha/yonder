@@ -8,21 +8,26 @@ use crate::config::Settings;
 use crate::identity::Identity;
 use crate::transfer::Transfer;
 
-/// Decision returned by the receive prompt to the `axum` server.
+/// Decision returned by the receive prompt to the QUIC accept handler.
 #[derive(Debug, Clone, Copy)]
 pub enum ApprovalDecision {
     Accept,
     Reject,
 }
 
+/// A peer discovered via iroh's mDNS-based address lookup. The `id`
+/// is the peer's [`iroh::EndpointId`] rendered as a string and is the
+/// only address you need to dial them — iroh resolves it back to a
+/// `EndpointAddr` internally using the discovered direct addresses.
 #[derive(Debug, Clone, Serialize)]
 pub struct Peer {
     pub id: String,
     pub name: String,
     pub os: String,
-    pub host: String,
-    pub port: u16,
     pub version: String,
+    /// Direct UDP addresses learned via mDNS. Informational only —
+    /// dialing happens by `id`. Populated for tooltips and debugging.
+    pub addresses: Vec<String>,
 }
 
 /// In-memory app state. Cheap to clone because everything is Arc<Mutex>.
@@ -36,9 +41,8 @@ struct Inner {
     identity: Mutex<Identity>,
     peers: Mutex<HashMap<String, Peer>>,
     transfers: Mutex<HashMap<String, Transfer>>,
-    /// Pending oneshot senders keyed by transfer id; the axum server
-    /// awaits these to know whether the user accepted the incoming
-    /// transfer.
+    /// Pending oneshot senders keyed by transfer id; the QUIC accept
+    /// handler awaits these to know whether the user accepted.
     pending_approvals: Mutex<HashMap<String, oneshot::Sender<ApprovalDecision>>>,
 }
 
@@ -79,6 +83,9 @@ impl AppState {
         self.inner.peers.lock().unwrap().get(id).cloned()
     }
 
+    /// Returns true if the peer was newly inserted (caller emits
+    /// `peer-added`); false if it was an in-place update (caller may
+    /// emit `peer-updated`).
     pub fn insert_peer(&self, peer: Peer) -> bool {
         let mut guard = self.inner.peers.lock().unwrap();
         let key = peer.id.clone();
@@ -89,10 +96,6 @@ impl AppState {
 
     pub fn remove_peer(&self, id: &str) -> Option<Peer> {
         self.inner.peers.lock().unwrap().remove(id)
-    }
-
-    pub fn clear_peers(&self) {
-        self.inner.peers.lock().unwrap().clear();
     }
 
     pub fn list_transfers(&self) -> Vec<Transfer> {

@@ -128,26 +128,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </div>
               </Field>
 
-              <Field
-                label="Port"
-                hint="TCP port for receiving files. Other peers see this via mDNS automatically."
-              >
-                <input
-                  type="number"
-                  min={1024}
-                  max={65535}
-                  value={draft.tcp_port}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      tcp_port: Number.isFinite(Number(e.target.value))
-                        ? Number(e.target.value)
-                        : draft.tcp_port,
-                    })
-                  }
-                />
-              </Field>
-
               <Toggle
                 label="Auto-accept incoming transfers"
                 hint="Skip the 'Accept?' prompt. Useful between your own devices on a trusted network."

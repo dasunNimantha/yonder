@@ -9,12 +9,14 @@ export interface Identity {
 }
 
 export interface Peer {
+  /** iroh `EndpointId` (Ed25519 public key) rendered as a string. */
   id: string;
   name: string;
   os: string;
-  host: string;
-  port: number;
   version: string;
+  /** Direct UDP addresses learned via mDNS. Informational only;
+   *  dialing happens by `id`. */
+  addresses: string[];
 }
 
 export interface FileMeta {
@@ -56,10 +58,11 @@ export interface ProgressEvent {
 }
 
 export interface Settings {
-  device_id: string;
+  /** 64-char hex-encoded Ed25519 secret key. The frontend should not
+   *  expose this directly — read-only round-trip back to Rust. */
+  secret_key: string;
   display_name: string;
   download_dir: string;
-  tcp_port: number;
   auto_accept: boolean;
   start_minimized: boolean;
   start_on_login: boolean;
@@ -101,10 +104,9 @@ export const api = {
     safeInvoke<void>("cancel_transfer", { transferId }),
   getSettings: () =>
     safeInvoke<Settings>("get_settings", undefined, {
-      device_id: "browser",
+      secret_key: "",
       display_name: "Browser preview",
       download_dir: "",
-      tcp_port: 53317,
       auto_accept: false,
       start_minimized: false,
       start_on_login: false,

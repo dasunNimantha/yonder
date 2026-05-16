@@ -51,7 +51,7 @@ export function PeerCard({ peer, isDropTarget, onClick }: PeerCardProps) {
       onClick={onClick}
       whileHover={{ y: -3 }}
       transition={{ type: "spring", stiffness: 320, damping: 22 }}
-      title={`${peer.name} • ${peer.host}:${peer.port}`}
+      title={`${peer.name} • ${peer.id.slice(0, 8)}\u2026`}
     >
       <div
         className="peer-avatar"

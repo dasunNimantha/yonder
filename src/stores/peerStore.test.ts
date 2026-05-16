@@ -8,9 +8,8 @@ function peer(id: string, name = `Device ${id}`): Peer {
     id,
     name,
     os: "linux",
-    host: "192.168.1.10",
-    port: 53317,
     version: "0.1.0",
+    addresses: ["192.168.1.10:54321"],
   };
 }
 

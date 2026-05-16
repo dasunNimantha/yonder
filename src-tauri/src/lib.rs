@@ -1,13 +1,11 @@
+pub mod accept;
 pub mod client;
 pub mod commands;
 pub mod config;
-pub mod discovery;
 pub mod identity;
-pub mod server;
+pub mod net;
 pub mod state;
 pub mod transfer;
-
-use std::sync::Mutex;
 
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -16,18 +14,17 @@ use tauri::{
 };
 
 use commands::*;
-use discovery::Discovery;
 use identity::Identity;
 use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let settings = config::load_or_init();
-    let identity = Identity::new(
-        settings.device_id.clone(),
-        Some(settings.display_name.clone()),
-    );
-    let app_state = AppState::new(settings.clone(), identity);
+    let secret_key = settings
+        .secret()
+        .expect("settings.json secret_key parsed at load time");
+    let identity = Identity::new(&secret_key, Some(settings.display_name.clone()));
+    let app_state = AppState::new(settings.clone(), identity.clone());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -37,7 +34,6 @@ pub fn run() {
             None,
         ))
         .manage(app_state.clone())
-        .manage::<Mutex<Option<Discovery>>>(Mutex::new(None))
         .setup(move |app| {
             // ── Tray with Show / Hide / Quit -----------------------------------
             let show_item = MenuItemBuilder::with_id("show", "Show Yonder").build(app)?;
@@ -79,7 +75,6 @@ pub fn run() {
                     {
                         let app = tray.app_handle();
                         if let Some(w) = app.get_webview_window("main") {
-                            // Toggle: if visible, hide; otherwise show + focus.
                             let visible = w.is_visible().unwrap_or(false);
                             if visible {
                                 let _ = w.hide();
@@ -93,35 +88,49 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Honour the saved "start minimized" preference.
             if settings.start_minimized {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
                 }
             }
 
-            // ── Spin up HTTP receive server + mDNS discovery ------------------
+            // ── Spin up the iroh endpoint + accept loop + discovery loop -----
             let handle = app.handle().clone();
-            let state_for_server = app_state.clone();
-            let port = settings.tcp_port;
+            let app_state_for_spawn = app_state.clone();
+            let identity_for_spawn = identity.clone();
 
             tauri::async_runtime::spawn(async move {
-                match server::spawn(handle.clone(), state_for_server, port).await {
-                    Ok(bound) => {
-                        log::info!("HTTP server bound to {bound}");
-                        match Discovery::start(handle.clone(), bound.port()) {
-                            Ok(discovery) => {
-                                let slot = handle.state::<Mutex<Option<Discovery>>>();
-                                let mut guard = slot.lock().expect("discovery slot poisoned");
-                                *guard = Some(discovery);
-                            }
-                            Err(e) => {
-                                log::error!("mDNS discovery failed to start: {e}");
-                            }
-                        }
+                let user_data = net::PeerUserDataIn {
+                    name: identity_for_spawn.name.clone(),
+                    os: identity_for_spawn.os.clone(),
+                    version: identity_for_spawn.version.clone(),
+                };
+                match net::build_endpoint(secret_key, user_data).await {
+                    Ok((endpoint, mdns)) => {
+                        log::info!("iroh endpoint ready: {}", endpoint.id());
+                        // Make the endpoint reachable from Tauri commands
+                        // (send_files, update_settings).
+                        handle.manage(endpoint.clone());
+
+                        // Run accept + discovery concurrently for the
+                        // lifetime of the app. They each return when the
+                        // endpoint is closed.
+                        let accept_app = handle.clone();
+                        let accept_state = app_state_for_spawn.clone();
+                        let accept_endpoint = endpoint.clone();
+                        tokio::spawn(async move {
+                            accept::run_accept_loop(accept_endpoint, accept_state, accept_app)
+                                .await;
+                        });
+
+                        let disc_app = handle.clone();
+                        let disc_state = app_state_for_spawn.clone();
+                        tokio::spawn(async move {
+                            net::run_discovery_loop(disc_app, disc_state, mdns).await;
+                        });
                     }
                     Err(e) => {
-                        log::error!("HTTP server failed to start: {e}");
+                        log::error!("could not start iroh endpoint: {e:#}");
                     }
                 }
             });
@@ -129,8 +138,6 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Intercept the user closing the window: hide it instead of
-            // exiting so the app keeps running in the tray.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
                     let _ = window.hide();
