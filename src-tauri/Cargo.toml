@@ -31,7 +31,13 @@ dirs = "6"
 # QUIC transport + mDNS-based local-network address lookup. RelayMode is
 # pinned to Disabled at the call-site (via presets::N0DisableRelay), so no
 # DERP traffic is ever sent or received.
-iroh = { version = "0.98", features = ["address-lookup-mdns"] }
+#
+# iroh 1.0.0-rc.0 split mDNS out into its own crate to drop netwatch's
+# wmi dependency on Windows; we use the n0-default features minus
+# `portmapper` (which we don't need with RelayMode::Disabled) and pull
+# iroh-mdns-address-lookup separately for the LAN discovery.
+iroh = { version = "1.0.0-rc.0", default-features = false, features = ["metrics", "tls-ring"] }
+iroh-mdns-address-lookup = "0.2"
 n0-future = "0.3"
 data-encoding = "2"
 

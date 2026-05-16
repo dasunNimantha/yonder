@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
-use iroh::address_lookup::mdns::{DiscoveryEvent, MdnsAddressLookup};
 use iroh::address_lookup::UserData;
 use iroh::endpoint::presets;
 use iroh::{Endpoint, SecretKey};
+use iroh_mdns_address_lookup::{DiscoveryEvent, MdnsAddressLookup};
 use n0_future::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
