@@ -42,3 +42,6 @@ local-ip-address = "0.6"
 os_info = "3"
 sanitize-filename = "0.6"
 percent-encoding = "2"
+
+[dev-dependencies]
+tempfile = "3"

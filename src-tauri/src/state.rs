@@ -106,11 +106,7 @@ impl AppState {
     }
 
     pub fn upsert_transfer(&self, t: Transfer) {
-        self.inner
-            .transfers
-            .lock()
-            .unwrap()
-            .insert(t.id.clone(), t);
+        self.inner.transfers.lock().unwrap().insert(t.id.clone(), t);
     }
 
     pub fn get_transfer(&self, id: &str) -> Option<Transfer> {

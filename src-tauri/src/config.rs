@@ -92,7 +92,43 @@ pub fn save(settings: &Settings) -> std::io::Result<()> {
     let json = serde_json::to_vec_pretty(settings).unwrap_or_default();
     std::fs::write(path, json)?;
     if let Err(e) = std::fs::create_dir_all(&settings.download_dir) {
-        log::warn!("could not create download dir {}: {e}", settings.download_dir);
+        log::warn!(
+            "could not create download dir {}: {e}",
+            settings.download_dir
+        );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_for_have_sane_baseline() {
+        let s = Settings::defaults_for("dev-xyz".into());
+        assert_eq!(s.device_id, "dev-xyz");
+        assert_eq!(s.tcp_port, 53317);
+        assert!(!s.auto_accept);
+        assert!(!s.start_minimized);
+        assert!(!s.start_on_login);
+        assert_eq!(s.theme, "dark");
+        assert!(
+            !s.display_name.is_empty(),
+            "fallback name should not be empty"
+        );
+        assert!(s.download_dir.contains("Yonder"));
+    }
+
+    #[test]
+    fn settings_round_trip_through_json() {
+        let s = Settings::defaults_for("dev-xyz".into());
+        let bytes = serde_json::to_vec(&s).unwrap();
+        let back: Settings = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(back.device_id, s.device_id);
+        assert_eq!(back.tcp_port, s.tcp_port);
+        assert_eq!(back.theme, s.theme);
+        assert_eq!(back.display_name, s.display_name);
+        assert_eq!(back.download_dir, s.download_dir);
+    }
 }

@@ -4,7 +4,7 @@ use chrono::Utc;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::client;
-use crate::state::{ApprovalDecision, AppState};
+use crate::state::{AppState, ApprovalDecision};
 use crate::transfer::{Transfer, TransferStatus};
 
 #[tauri::command]

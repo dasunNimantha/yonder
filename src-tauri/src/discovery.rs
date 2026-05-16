@@ -26,8 +26,7 @@ impl Discovery {
     /// are funneled into `AppState` and surfaced to the frontend as
     /// `peer-added` / `peer-removed` events.
     pub fn start(handle: AppHandle, port: u16) -> Result<Self> {
-        let daemon =
-            ServiceDaemon::new().map_err(|e| anyhow!("mdns daemon create failed: {e}"))?;
+        let daemon = ServiceDaemon::new().map_err(|e| anyhow!("mdns daemon create failed: {e}"))?;
 
         let state = handle.state::<AppState>().inner().clone();
         let identity = state.identity();
@@ -127,8 +126,8 @@ fn build_service_info(
     identity: &crate::identity::Identity,
     port: u16,
 ) -> Result<ServiceInfo> {
-    let local_ip = local_ip_address::local_ip()
-        .map_err(|e| anyhow!("could not resolve local IP: {e}"))?;
+    let local_ip =
+        local_ip_address::local_ip().map_err(|e| anyhow!("could not resolve local IP: {e}"))?;
 
     let mut properties = std::collections::HashMap::new();
     properties.insert("id".to_string(), identity.id.clone());

@@ -12,9 +12,7 @@ use tokio::fs::File;
 use tokio_util::io::ReaderStream;
 
 use crate::state::{AppState, Peer};
-use crate::transfer::{
-    FileMeta, ProgressEvent, ProgressThrottle, Transfer, TransferStatus,
-};
+use crate::transfer::{FileMeta, ProgressEvent, ProgressThrottle, Transfer, TransferStatus};
 
 #[derive(Debug, Clone, Serialize)]
 struct UploadMetaBody {
@@ -46,8 +44,8 @@ pub fn spawn_send(
     let metas = paths
         .iter()
         .map(|p| {
-            let md = std::fs::metadata(p)
-                .map_err(|e| anyhow!("could not stat {}: {e}", p.display()))?;
+            let md =
+                std::fs::metadata(p).map_err(|e| anyhow!("could not stat {}: {e}", p.display()))?;
             let name = p
                 .file_name()
                 .map(|s| s.to_string_lossy().to_string())
@@ -126,10 +124,7 @@ async fn do_send(
     };
     let meta_json = serde_json::to_string(&meta_body)?;
 
-    let mut form = Form::new().part(
-        "meta",
-        Part::text(meta_json).mime_str("application/json")?,
-    );
+    let mut form = Form::new().part("meta", Part::text(meta_json).mime_str("application/json")?);
 
     for (path, meta) in paths.iter().zip(metas.iter()) {
         let file = File::open(path)
@@ -195,7 +190,11 @@ async fn do_send(
 
     let final_bytes = throttle.snapshot();
     let _ = state.update_transfer(&session, |t| {
-        t.bytes_done = if final_bytes > 0 { final_bytes } else { total_bytes };
+        t.bytes_done = if final_bytes > 0 {
+            final_bytes
+        } else {
+            total_bytes
+        };
         t.status = TransferStatus::Completed;
         t.finished_at = Some(Utc::now());
     });

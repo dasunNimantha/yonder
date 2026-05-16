@@ -53,3 +53,44 @@ impl Identity {
 pub fn new_device_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_device_id_returns_unique_uuids() {
+        let a = new_device_id();
+        let b = new_device_id();
+        assert_ne!(a, b);
+        // Standard hyphenated UUID v4 length
+        assert_eq!(a.len(), 36);
+    }
+
+    #[test]
+    fn identity_uses_explicit_display_name_when_provided() {
+        let id = Identity::new("device-1".into(), Some("Alice's Mac".into()));
+        assert_eq!(id.id, "device-1");
+        assert_eq!(id.name, "Alice's Mac");
+        assert_eq!(id.version, env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn identity_falls_back_to_a_non_empty_name() {
+        let id = Identity::new("device-2".into(), None);
+        assert!(!id.name.is_empty(), "fallback name should never be blank");
+    }
+
+    #[test]
+    fn identity_os_tag_is_one_of_the_known_buckets() {
+        let id = Identity::new("device-3".into(), Some("X".into()));
+        assert!(
+            matches!(
+                id.os.as_str(),
+                "linux" | "macos" | "windows" | "android" | "unknown"
+            ),
+            "unexpected os tag {:?}",
+            id.os
+        );
+    }
+}

@@ -146,3 +146,79 @@ fn now_ms() -> u64 {
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn meta(name: &str, size: u64) -> FileMeta {
+        FileMeta {
+            name: name.into(),
+            size,
+            mime: None,
+        }
+    }
+
+    #[test]
+    fn new_send_sums_total_bytes_and_assigns_unique_id() {
+        let t1 = Transfer::new_send(
+            "p1".into(),
+            "Bob".into(),
+            vec![meta("a.txt", 100), meta("b.txt", 250)],
+        );
+        let t2 = Transfer::new_send("p1".into(), "Bob".into(), vec![meta("a.txt", 100)]);
+
+        assert_eq!(t1.total_bytes, 350);
+        assert_eq!(t1.bytes_done, 0);
+        assert_eq!(t1.direction, Direction::Send);
+        assert_eq!(t1.status, TransferStatus::Pending);
+        assert_ne!(t1.id, t2.id, "transfer ids should not collide");
+    }
+
+    #[test]
+    fn new_receive_starts_in_awaiting_approval() {
+        let t = Transfer::new_receive(
+            "session-1".into(),
+            "p2".into(),
+            "Alice".into(),
+            vec![meta("doc.pdf", 4096)],
+        );
+        assert_eq!(t.id, "session-1");
+        assert_eq!(t.direction, Direction::Receive);
+        assert_eq!(t.status, TransferStatus::AwaitingApproval);
+        assert_eq!(t.total_bytes, 4096);
+    }
+
+    #[test]
+    fn progress_throttle_emits_first_then_pauses() {
+        // With a 1-second interval, the first add of any size should
+        // emit (last_emit_ms starts at 0, so the diff is huge), and
+        // immediate follow-ups must NOT emit.
+        let t = ProgressThrottle::new(1000);
+        let first = t.add(100);
+        assert_eq!(first, Some(100));
+        let second = t.add(50);
+        assert_eq!(second, None, "rapid follow-up should be throttled");
+        assert_eq!(t.snapshot(), 150);
+    }
+
+    #[test]
+    fn progress_throttle_emits_again_after_interval() {
+        // 0ms interval means every call should emit.
+        let t = ProgressThrottle::new(0);
+        for _ in 0..5 {
+            assert!(t.add(10).is_some());
+        }
+        assert_eq!(t.snapshot(), 50);
+    }
+
+    #[test]
+    fn progress_throttle_accumulates_bytes_across_skipped_emits() {
+        let t = ProgressThrottle::new(100_000); // effectively never emits past first
+        let _ = t.add(1);
+        for _ in 0..9 {
+            let _ = t.add(1);
+        }
+        assert_eq!(t.snapshot(), 10);
+    }
+}

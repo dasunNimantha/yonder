@@ -16,7 +16,7 @@ use tauri::{AppHandle, Emitter};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::oneshot;
 
-use crate::state::{ApprovalDecision, AppState};
+use crate::state::{AppState, ApprovalDecision};
 use crate::transfer::{FileMeta, ProgressEvent, ProgressThrottle, Transfer, TransferStatus};
 
 #[derive(Clone)]
@@ -56,12 +56,7 @@ struct ErrorBody {
 }
 
 fn err(status: StatusCode, msg: impl Into<String>) -> (StatusCode, Json<ErrorBody>) {
-    (
-        status,
-        Json(ErrorBody {
-            error: msg.into(),
-        }),
-    )
+    (status, Json(ErrorBody { error: msg.into() }))
 }
 
 /// Spawn the HTTP receive server on `0.0.0.0:port`. Returns a handle
@@ -105,9 +100,7 @@ pub async fn spawn(handle: AppHandle, state: AppState, port: u16) -> Result<Sock
     Ok(bound)
 }
 
-async fn get_info(
-    AxumState(ctx): AxumState<Arc<ServerCtx>>,
-) -> impl IntoResponse {
+async fn get_info(AxumState(ctx): AxumState<Arc<ServerCtx>>) -> impl IntoResponse {
     let id = ctx.state.identity();
     Json(InfoResponse {
         id: id.id,
@@ -159,8 +152,12 @@ async fn post_upload(
         .or(params.sender_name.clone())
         .unwrap_or_else(|| "Unknown device".to_string());
 
-    let transfer =
-        Transfer::new_receive(params.session.clone(), params.sender.clone(), peer_name.clone(), meta.files.clone());
+    let transfer = Transfer::new_receive(
+        params.session.clone(),
+        params.sender.clone(),
+        peer_name.clone(),
+        meta.files.clone(),
+    );
     ctx.state.upsert_transfer(transfer.clone());
 
     let _ = ctx.handle.emit("transfer-added", &transfer);
@@ -309,11 +306,7 @@ async fn post_upload(
     })))
 }
 
-fn fail_transfer(
-    ctx: &ServerCtx,
-    session: &str,
-    msg: String,
-) -> (StatusCode, Json<ErrorBody>) {
+fn fail_transfer(ctx: &ServerCtx, session: &str, msg: String) -> (StatusCode, Json<ErrorBody>) {
     let _ = ctx.state.update_transfer(session, |t| {
         t.status = TransferStatus::Failed;
         t.error = Some(msg.clone());
@@ -326,7 +319,7 @@ fn fail_transfer(
 }
 
 /// Find a path that doesn't collide, appending `(2)`, `(3)`, …
-fn unique_path(dir: &Path, name: &str) -> PathBuf {
+pub(crate) fn unique_path(dir: &Path, name: &str) -> PathBuf {
     let mut candidate = dir.join(name);
     if !candidate.exists() {
         return candidate;
@@ -349,5 +342,48 @@ fn unique_path(dir: &Path, name: &str) -> PathBuf {
         if n > 9999 {
             return candidate;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::unique_path;
+
+    #[test]
+    fn unique_path_returns_input_when_no_collision() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = unique_path(dir.path(), "fresh.txt");
+        assert_eq!(p, dir.path().join("fresh.txt"));
+    }
+
+    #[test]
+    fn unique_path_appends_numeric_suffix_for_collisions() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("file.txt"), b"a").unwrap();
+        let p2 = unique_path(dir.path(), "file.txt");
+        assert_eq!(p2, dir.path().join("file (2).txt"));
+
+        std::fs::write(&p2, b"b").unwrap();
+        let p3 = unique_path(dir.path(), "file.txt");
+        assert_eq!(p3, dir.path().join("file (3).txt"));
+    }
+
+    #[test]
+    fn unique_path_handles_files_without_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("README"), b"a").unwrap();
+        let p = unique_path(dir.path(), "README");
+        assert_eq!(p, dir.path().join("README (2)"));
+    }
+
+    #[test]
+    fn unique_path_preserves_dotfile_extensions() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("archive.tar.gz"), b"a").unwrap();
+        // Path::extension only sees the last segment, so we get
+        // "archive.tar (2).gz". This matches user-visible behaviour
+        // of most file managers.
+        let p = unique_path(dir.path(), "archive.tar.gz");
+        assert_eq!(p, dir.path().join("archive.tar (2).gz"));
     }
 }
