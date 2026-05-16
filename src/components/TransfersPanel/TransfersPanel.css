@@ -1,0 +1,240 @@
+.transfers-panel {
+  position: fixed;
+  top: 38px;
+  right: 0;
+  bottom: 0;
+  width: 360px;
+  background: var(--bg-titlebar);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 90;
+  box-shadow: var(--shadow-lg);
+}
+
+.transfers-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.transfers-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.transfers-panel-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.transfers-panel-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s, color 0.12s;
+}
+.transfers-panel-icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.transfers-panel-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.transfers-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.transfers-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.transfers-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.transfers-empty {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  padding: 8px 4px;
+}
+
+.transfer-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.transfer-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transfer-direction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+.direction-send {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.direction-receive {
+  background: rgba(61, 214, 140, 0.16);
+  color: var(--success);
+}
+
+.transfer-peer {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transfer-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.status-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.status-completed {
+  background: rgba(61, 214, 140, 0.16);
+  color: var(--success);
+}
+.status-failed {
+  background: rgba(240, 100, 100, 0.18);
+  color: var(--error);
+}
+.status-cancelled {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+.status-awaiting {
+  background: rgba(245, 183, 49, 0.16);
+  color: var(--warning);
+}
+
+.transfer-files {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transfer-progress-track {
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.transfer-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 0.15s linear;
+}
+.transfer-progress-fill.status-completed {
+  background: var(--success);
+}
+.transfer-progress-fill.status-failed,
+.transfer-progress-fill.status-rejected {
+  background: var(--error);
+}
+.transfer-progress-fill.status-cancelled {
+  background: var(--text-muted);
+}
+
+.transfer-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.transfer-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.transfer-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.transfer-cancel:hover {
+  background: var(--error);
+  color: #fff;
+}
+
+.transfer-error {
+  font-size: 11.5px;
+  color: var(--error);
+  background: rgba(240, 100, 100, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+
+.spin {
+  animation: rotate 0.9s linear infinite;
+}
+
+@keyframes rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
