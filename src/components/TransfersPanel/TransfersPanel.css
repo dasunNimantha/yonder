@@ -203,6 +203,11 @@
   gap: 6px;
 }
 
+.transfer-speed {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .transfer-cancel {
   display: inline-flex;
   align-items: center;

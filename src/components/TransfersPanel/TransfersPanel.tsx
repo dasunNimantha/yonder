@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import type { Transfer } from "../../lib/tauri";
-import { formatBytes, formatPercent } from "../../lib/format";
+import { formatBytes, formatPercent, formatSpeed } from "../../lib/format";
 import { useTransferStore, isActive } from "../../stores/transferStore";
 import { api } from "../../lib/tauri";
 import "./TransfersPanel.css";
@@ -115,6 +115,22 @@ function TransferRow({ transfer }: { transfer: Transfer }) {
       : `${transfer.files.length} files`;
   const sizeLine = `${formatBytes(transfer.bytes_done)} / ${formatBytes(transfer.total_bytes)}`;
 
+  // Compute average throughput. We use the simple
+  // bytes / wall-clock seconds estimator: progress events arrive
+  // ~10 Hz so the value visibly updates without us needing to
+  // maintain a rolling window. For terminal states we show the
+  // overall average (started_at -> finished_at) so the last value
+  // stays meaningful.
+  const speedBps = (() => {
+    if (!isActive(transfer) && !transfer.finished_at) return 0;
+    const start = new Date(transfer.started_at).getTime();
+    const end = transfer.finished_at
+      ? new Date(transfer.finished_at).getTime()
+      : Date.now();
+    const elapsedSec = Math.max(0.001, (end - start) / 1000);
+    return transfer.bytes_done / elapsedSec;
+  })();
+
   const statusBadge = (() => {
     switch (transfer.status) {
       case "active":
@@ -183,6 +199,11 @@ function TransferRow({ transfer }: { transfer: Transfer }) {
       </div>
       <div className="transfer-meta">
         <span>{sizeLine}</span>
+        {speedBps > 0 ? (
+          <span className="transfer-speed" title="Average throughput">
+            {formatSpeed(speedBps)}
+          </span>
+        ) : null}
         <span>
           {pct}
           {showCancel ? (

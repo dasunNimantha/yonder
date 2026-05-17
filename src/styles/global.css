@@ -45,7 +45,7 @@ html[data-theme="dark"] {
   --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
   --shadow-accent: 0 0 0 1px var(--accent-soft), 0 12px 32px var(--accent-glow);
 
-  --font-sans: "Fira Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Geist", -apple-system, "Segoe UI", system-ui, sans-serif;
 }
 
 html[data-theme="light"] {

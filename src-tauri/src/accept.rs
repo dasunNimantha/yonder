@@ -1,11 +1,13 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use iroh::endpoint::{Connection, Endpoint, RecvStream, SendStream};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_notification::NotificationExt;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::oneshot;
@@ -173,6 +175,35 @@ async fn handle_connection(conn: Connection, state: AppState, app: AppHandle) ->
 
     let _ = send.write_u8(OK).await;
     let _ = send.finish();
+
+    // The sender is the peer receiving our LAST application byte
+    // (the completion ack above), so per iroh's graceful-close docs
+    // the sender is responsible for closing the connection. We keep
+    // *our* end alive until that happens (with a generous cap to
+    // bound resource use against a misbehaving peer) so the OK byte
+    // makes it across before our Connection handle drops on task
+    // exit. Without this, the sender would routinely surface a
+    // false-positive "read completion byte" error even though the
+    // files arrived intact.
+    let _ = tokio::time::timeout(Duration::from_secs(10), conn.closed()).await;
+
+    // Fire-and-forget desktop notification so the user sees a
+    // confirmation even if the window is hidden in the tray.
+    let notify_app = app.clone();
+    let title = "Transfer complete".to_string();
+    let body = match meta.files.len() {
+        1 => format!("Received {} from {}", meta.files[0].name, peer_name),
+        n => format!("Received {n} files from {peer_name}"),
+    };
+    tauri::async_runtime::spawn(async move {
+        let _ = notify_app
+            .notification()
+            .builder()
+            .title(title)
+            .body(body)
+            .show();
+    });
+
     Ok(())
 }
 
@@ -198,7 +229,46 @@ async fn await_approval(
     let (tx, rx) = oneshot::channel();
     state.register_pending_approval(&transfer.id, tx);
     let _ = app.emit("transfer-awaiting-approval", transfer);
+
+    // Surface the request as an OS-level notification so a user with
+    // the window hidden in the tray still sees the prompt. We fire it
+    // from a detached task so a slow desktop notification daemon
+    // can't delay the IPC event.
+    let notify_app = app.clone();
+    let title = format!("{} wants to send files", transfer.peer_name);
+    let body = match transfer.files.len() {
+        1 => format!(
+            "{} ({})",
+            transfer.files[0].name,
+            format_bytes(transfer.total_bytes)
+        ),
+        n => format!("{n} files ({})", format_bytes(transfer.total_bytes)),
+    };
+    tauri::async_runtime::spawn(async move {
+        let _ = notify_app
+            .notification()
+            .builder()
+            .title(title)
+            .body(body)
+            .show();
+    });
+
     rx.await.unwrap_or(ApprovalDecision::Reject)
+}
+
+fn format_bytes(bytes: u64) -> String {
+    let units = ["B", "KB", "MB", "GB", "TB"];
+    let mut value = bytes as f64;
+    let mut i = 0;
+    while value >= 1024.0 && i < units.len() - 1 {
+        value /= 1024.0;
+        i += 1;
+    }
+    if i == 0 {
+        format!("{} {}", bytes, units[i])
+    } else {
+        format!("{:.1} {}", value, units[i])
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

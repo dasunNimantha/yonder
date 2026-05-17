@@ -148,6 +148,15 @@ async fn do_send(
         return Err(anyhow!("peer reported transfer error"));
     }
 
+    // We are the peer that received the LAST application byte (the
+    // completion ack), so per iroh's graceful-close docs it's our job
+    // to close the connection. Without this explicit close the peer's
+    // QUIC stack may not finalize delivery of the OK byte before we
+    // drop the Connection at task exit, which would surface as a
+    // false-positive "read completion byte" failure on the receiver
+    // side.
+    conn.close(0u32.into(), b"done");
+
     let final_bytes = throttle.snapshot();
     let _ = state.update_transfer(&session, |t| {
         t.bytes_done = if final_bytes > 0 {

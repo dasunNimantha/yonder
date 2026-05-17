@@ -78,7 +78,10 @@ function SelfHero({ self, peerCount }: { self: Identity | null; peerCount: numbe
 
   return (
     <div className="self-hero">
-      <div className={`self-sonar ${peerCount === 0 ? "looking" : ""}`}>
+      {/* The pulse runs continuously — we keep advertising over mDNS
+          even after peers are found, so the animation matches reality
+          and visually reassures the user the app is still "live". */}
+      <div className="self-sonar looking">
         <div className="self-sonar-ring r1" />
         <div className="self-sonar-ring r2" />
         <div className="self-sonar-ring r3" />
