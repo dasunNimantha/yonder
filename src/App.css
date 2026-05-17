@@ -1,12 +1,17 @@
 .app-toolbar {
+  position: relative;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 18px;
-  background: var(--bg-titlebar);
+  padding: 9px 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    rgba(20, 20, 26, 0.92);
   border-bottom: 1px solid var(--border);
   font-size: 13px;
+  backdrop-filter: blur(14px);
 }
 
 .app-toolbar-left {
@@ -86,9 +91,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 6px 12px;
   border: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: rgba(255, 255, 255, 0.045);
   color: var(--text-secondary);
   border-radius: var(--radius-pill);
   cursor: pointer;
@@ -123,8 +128,28 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   transition: padding-right 0.22s ease;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(99, 152, 255, 0.13), transparent 34%),
+    radial-gradient(circle at 0% 100%, rgba(61, 214, 140, 0.055), transparent 30%),
+    var(--bg-app);
+}
+
+.app-main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 160px),
+    radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.18) 95%);
+}
+
+.app-main > * {
+  position: relative;
+  z-index: 1;
 }
 .app-main.with-side-panel {
-  padding-right: 360px;
+  padding-right: 372px;
 }

@@ -3,26 +3,29 @@
   top: 38px;
   right: 0;
   bottom: 0;
-  width: 360px;
-  background: var(--bg-titlebar);
+  width: 372px;
+  background:
+    radial-gradient(circle at 90% 0%, rgba(99, 152, 255, 0.13), transparent 32%),
+    rgba(20, 20, 27, 0.96);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   z-index: 90;
-  box-shadow: var(--shadow-lg);
+  box-shadow: -18px 0 60px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
 }
 
 .transfers-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
+  padding: 16px 16px 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .transfers-panel-title {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 800;
   color: var(--text-primary);
 }
 
@@ -56,10 +59,10 @@
 .transfers-panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 14px 20px;
+  padding: 16px 16px 22px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 22px;
 }
 
 .transfers-section-title {
@@ -86,11 +89,14 @@
 .transfer-row {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  background: var(--bg-surface);
+  gap: 8px;
+  padding: 13px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+    var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset;
 }
 
 .transfer-row-head {
@@ -167,7 +173,7 @@
 }
 
 .transfer-progress-track {
-  height: 4px;
+  height: 5px;
   background: var(--bg-hover);
   border-radius: var(--radius-pill);
   overflow: hidden;

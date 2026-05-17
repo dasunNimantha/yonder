@@ -4,6 +4,7 @@ import {
   ArrowUpFromLine,
   HardDrive,
   Monitor,
+  Send,
   Smartphone,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -144,6 +145,16 @@ export function PeerCard({
               direction === "send" ? "sending" : "receiving"
             }`
           : osLabel(peer.os)}
+      </div>
+
+      <div className="peer-card-footer">
+        <span className={`peer-live-dot ${isTransferring ? "busy" : ""}`} />
+        <span>{isTransferring ? "Transfer in progress" : "Ready to receive"}</span>
+      </div>
+
+      <div className="peer-card-cta" aria-hidden="true">
+        <Send size={12} />
+        <span>Send files</span>
       </div>
 
       <div className="peer-card-overlay">

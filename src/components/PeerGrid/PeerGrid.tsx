@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Radio, RefreshCcw } from "lucide-react";
+import { MousePointer2, Radio, RefreshCcw, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import type { ReactNode } from "react";
 
 import type { Identity, Peer, Transfer } from "../../lib/tauri";
 import { PeerCard } from "./PeerCard";
@@ -24,9 +25,33 @@ export function PeerGrid({
 }: PeerGridProps) {
   return (
     <div className="peer-grid-area">
-      <SelfHero self={self} peerCount={peers.length} />
+      <div className="peer-stage">
+        <div className="peer-stage-glow glow-one" aria-hidden="true" />
+        <div className="peer-stage-glow glow-two" aria-hidden="true" />
+        <SelfHero self={self} peerCount={peers.length} />
+        <div className="peer-stage-pills" aria-label="Yonder connection features">
+          <FeaturePill icon={<ShieldCheck size={13} />} label="Encrypted local QUIC" />
+          <FeaturePill icon={<Zap size={13} />} label="No cloud relay" />
+          <FeaturePill icon={<MousePointer2 size={13} />} label="Click or drop to send" />
+        </div>
+      </div>
 
       <div className="peer-grid-wrapper">
+        <div className="peer-section-heading">
+          <div>
+            <div className="peer-section-kicker">
+              <Sparkles size={12} />
+              Nearby
+            </div>
+            <h2>Devices on this network</h2>
+          </div>
+          <div className="peer-section-copy">
+            {peers.length === 0
+              ? "Yonder is advertising continuously. Open it on another device to appear here."
+              : "Choose a device or drop files directly onto a card."}
+          </div>
+        </div>
+
         <AnimatePresence>
           {peers.length === 0 ? (
             <motion.div
@@ -74,6 +99,15 @@ export function PeerGrid({
           </AnimatePresence>
         </motion.div>
       </div>
+    </div>
+  );
+}
+
+function FeaturePill({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <div className="peer-stage-pill">
+      {icon}
+      <span>{label}</span>
     </div>
   );
 }
