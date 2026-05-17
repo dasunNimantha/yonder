@@ -1,15 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ArrowDownToLine, Check, X } from "lucide-react";
+import {
+  Apple,
+  ArrowDownToLine,
+  Check,
+  HardDrive,
+  Monitor,
+  Smartphone,
+  X,
+} from "lucide-react";
 
 import {
   api,
   onTransferAwaitingApproval,
   onTransferFinished,
   onTransferStarted,
+  type Peer,
   type Transfer,
 } from "../../lib/tauri";
-import { formatBytes } from "../../lib/format";
+import { deterministicHue, formatBytes, monogram } from "../../lib/format";
 import "./ApprovalPopup.css";
 
 /**
@@ -27,17 +36,23 @@ import "./ApprovalPopup.css";
  */
 export function ApprovalPopup() {
   const [pending, setPending] = useState<Transfer | null>(null);
+  const [peerById, setPeerById] = useState<Map<string, Peer>>(new Map());
   const [busy, setBusy] = useState(false);
 
   // On mount, ask Rust for any outstanding awaiting-approval transfer
   // — covers the case where the window is shown before the event
-  // listener has hooked up.
+  // listener has hooked up. We also fetch peers once so we can show
+  // the sender's OS icon.
   useEffect(() => {
     let cancelled = false;
     api.listTransfers().then((list) => {
       if (cancelled) return;
       const awaiting = list.find((t) => t.status === "awaiting-approval");
       if (awaiting) setPending(awaiting);
+    });
+    api.listPeers().then((peers) => {
+      if (cancelled) return;
+      setPeerById(new Map(peers.map((p) => [p.id, p])));
     });
     return () => {
       cancelled = true;
@@ -78,6 +93,8 @@ export function ApprovalPopup() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && pending && !busy) {
         void handleReject();
+      } else if (e.key === "Enter" && pending && !busy) {
+        void handleAccept();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -121,48 +138,90 @@ export function ApprovalPopup() {
     }
   }, [pending, busy]);
 
+  const peer = pending ? peerById.get(pending.peer_id) : undefined;
+  const hue = useMemo(
+    () => (pending ? deterministicHue(pending.peer_id) : 220),
+    [pending],
+  );
+
   if (!pending) {
     return <div className="approval-popup empty" />;
   }
 
-  const summary =
+  const fileSummary =
     pending.files.length === 1
       ? pending.files[0]!.name
       : `${pending.files.length} files`;
 
   return (
-    <div className="approval-popup">
-      <div className="approval-icon" aria-hidden="true">
-        <ArrowDownToLine size={18} />
+    <div className="approval-popup" data-tauri-drag-region>
+      <span className="approval-accent" aria-hidden="true" />
+
+      <div
+        className="approval-avatar"
+        style={{
+          background: `linear-gradient(135deg,
+            hsl(${hue}deg 70% 55%) 0%,
+            hsl(${(hue + 40) % 360}deg 70% 45%) 100%)`,
+        }}
+        aria-hidden="true"
+      >
+        {monogram(pending.peer_name, "?")}
+        <span className="approval-avatar-badge">
+          {peer ? osIcon(peer.os) : <ArrowDownToLine size={11} />}
+        </span>
       </div>
+
       <div className="approval-body">
-        <div className="approval-title">
-          <strong>{pending.peer_name}</strong> wants to send
+        <div className="approval-title" title={pending.peer_name}>
+          <strong>{pending.peer_name}</strong>
+          <span className="approval-subtitle"> wants to send</span>
         </div>
-        <div className="approval-detail" title={summary}>
-          {summary} <span>· {formatBytes(pending.total_bytes)}</span>
+        <div className="approval-detail" title={fileSummary}>
+          <span className="approval-filename">{fileSummary}</span>
+          <span className="approval-dot" aria-hidden="true">
+            ·
+          </span>
+          <span className="approval-size">{formatBytes(pending.total_bytes)}</span>
         </div>
       </div>
+
       <div className="approval-actions">
         <button
           className="approval-btn approval-btn-reject"
           onClick={handleReject}
           disabled={busy}
           title="Reject (Esc)"
+          aria-label="Reject"
         >
-          <X size={14} />
+          <X size={14} strokeWidth={2.2} />
         </button>
         <button
           className="approval-btn approval-btn-accept"
           onClick={handleAccept}
           disabled={busy}
-          title="Accept"
+          title="Accept (Enter)"
           autoFocus
         >
-          <Check size={14} />
+          <Check size={14} strokeWidth={2.5} />
           <span>Accept</span>
         </button>
       </div>
     </div>
   );
+}
+
+function osIcon(os: string) {
+  switch (os) {
+    case "macos":
+      return <Apple size={11} />;
+    case "windows":
+      return <Monitor size={11} />;
+    case "android":
+      return <Smartphone size={11} />;
+    case "linux":
+      return <HardDrive size={11} />;
+    default:
+      return <HardDrive size={11} />;
+  }
 }

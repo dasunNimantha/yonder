@@ -25,7 +25,17 @@ function currentWindowLabel(): string {
   }
 }
 
-const Root = currentWindowLabel() === "approval" ? ApprovalPopup : App;
+const isApproval = currentWindowLabel() === "approval";
+const Root = isApproval ? ApprovalPopup : App;
+
+// The approval window is configured as transparent — the boot
+// stylesheet in index.html paints an opaque app background which would
+// hide the OS-level transparency. Strip it for that window only.
+if (isApproval) {
+  document.documentElement.style.background = "transparent";
+  document.body.style.background = "transparent";
+  document.documentElement.dataset.window = "approval";
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

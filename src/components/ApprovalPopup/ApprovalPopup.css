@@ -1,45 +1,91 @@
-/* The popup window itself is small (380x200) and frameless. Fill it
- * edge-to-edge with a single card-ish surface so the whole window
- * looks like a notification toast. */
+/* The popup window is transparent (see tauri.conf.json) so the card
+ * itself floats inside with a real drop shadow — matches the "toast"
+ * feel of macOS / Windows 11 notifications. */
 
-html,
-body,
-#root {
+html[data-window="approval"],
+html[data-window="approval"] body,
+html[data-window="approval"] #root {
+  background: transparent !important;
+}
+
+html[data-window="approval"] {
   overflow: hidden;
 }
 
-#root {
+html[data-window="approval"] #root {
   height: 100vh;
+  width: 100vw;
+  padding: 12px;
+  box-sizing: border-box;
 }
 
 .approval-popup {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 18px;
+  padding: 14px 14px 14px 18px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  border-radius: 14px;
+  /* Stronger shadow than --shadow-lg — this lives outside the main
+   * window and needs to read as floating regardless of what's behind
+   * it on the desktop. */
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.4);
   font-family: var(--font-sans);
   color: var(--text-primary);
   height: 100%;
   box-sizing: border-box;
-  animation: approval-slide-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1);
+  overflow: hidden;
+  animation: approval-enter 0.28s cubic-bezier(0.16, 0.92, 0.24, 1.07);
 }
 
 .approval-popup.empty {
-  /* nothing to show; the window is being hidden by Rust */
   display: none;
 }
 
-.approval-icon {
-  width: 38px;
-  height: 38px;
+/* Accent stripe down the left edge — the immediate "something for you"
+ * signal that doesn't require reading text. */
+.approval-accent {
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.approval-avatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.approval-avatar-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -50,12 +96,13 @@ body,
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
+  gap: 4px;
 }
 
 .approval-title {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 14.5px;
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -64,16 +111,35 @@ body,
   color: var(--accent);
   font-weight: 600;
 }
+.approval-subtitle {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
 
 .approval-detail {
   font-size: 12.5px;
   color: var(--text-secondary);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.approval-filename {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-secondary);
 }
-.approval-detail span {
+.approval-dot {
   color: var(--text-muted);
+  flex-shrink: 0;
+}
+.approval-size {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .approval-actions {
@@ -91,15 +157,18 @@ body,
   font: inherit;
   font-size: 13px;
   font-weight: 600;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg-surface);
   color: var(--text-primary);
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  transition: background 0.14s, border-color 0.14s, box-shadow 0.14s, transform 0.1s;
 }
 .approval-btn:hover:not(:disabled) {
   background: var(--bg-hover);
+}
+.approval-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .approval-btn:disabled {
   opacity: 0.55;
@@ -108,8 +177,10 @@ body,
 
 .approval-btn-reject {
   width: 36px;
-  padding: 8px;
+  height: 36px;
+  padding: 0;
   color: var(--text-secondary);
+  border-radius: 50%;
 }
 .approval-btn-reject:hover:not(:disabled) {
   background: rgba(240, 100, 100, 0.16);
@@ -121,23 +192,24 @@ body,
   background: var(--accent);
   color: var(--text-inverse);
   border-color: var(--accent);
+  box-shadow: 0 4px 12px var(--accent-glow);
 }
 .approval-btn-accept:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
 .approval-btn-accept:focus-visible {
-  box-shadow: 0 0 0 3px var(--accent-soft);
   outline: none;
+  box-shadow: 0 4px 12px var(--accent-glow), 0 0 0 3px var(--accent-soft);
 }
 
-@keyframes approval-slide-in {
+@keyframes approval-enter {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(20px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }

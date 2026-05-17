@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { ArrowUpDown, BadgeCheck, Wifi } from "lucide-react";
+import { ArrowUpDown, Radio, Wifi } from "lucide-react";
 
 import { TitleBar } from "./components/TitleBar/TitleBar";
 import { PeerGrid } from "./components/PeerGrid/PeerGrid";
@@ -351,15 +351,21 @@ export function App() {
       <div className="app-toolbar">
         <div className="app-toolbar-left">
           <Wifi size={14} />
-          <span title={self?.id ?? ""}>
+          <span title={self?.id ? `Node ${self.id}` : ""}>
             You: <strong>{self?.name ?? "Yonder"}</strong>
           </span>
-          <span className="app-toolbar-dot" />
-          <BadgeCheck size={14} />
-          <span title={self?.id ?? ""}>
-            <code className="app-toolbar-id">
-              {self?.id ? `${self.id.slice(0, 8)}\u2026` : "\u2026"}
-            </code>
+          <span
+            className={`app-peer-pill ${peers.length === 0 ? "looking" : ""}`}
+            title={
+              peers.length === 0
+                ? "Broadcasting via mDNS; no peers yet"
+                : `${peers.length} peer${peers.length === 1 ? "" : "s"} discovered`
+            }
+          >
+            <span className="app-peer-pill-dot">
+              <Radio size={11} strokeWidth={2.4} />
+            </span>
+            {peers.length === 0 ? "Looking\u2026" : `${peers.length} nearby`}
           </span>
         </div>
         <button

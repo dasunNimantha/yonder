@@ -38,6 +38,50 @@
   letter-spacing: 0.02em;
 }
 
+.app-peer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 6px;
+  margin-left: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.app-peer-pill.looking {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.app-peer-pill-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+.app-peer-pill.looking .app-peer-pill-dot {
+  background: var(--text-muted);
+  color: var(--bg-surface);
+  animation: app-peer-pill-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes app-peer-pill-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 168, 184, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(168, 168, 184, 0);
+  }
+}
+
 .app-toolbar-btn {
   display: inline-flex;
   align-items: center;
