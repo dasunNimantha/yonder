@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { ArrowUpDown, BadgeCheck, Wifi } from "lucide-react";
@@ -22,6 +22,7 @@ import {
   onTransferProgress,
   onTransferStarted,
   type Peer,
+  type Transfer,
 } from "./lib/tauri";
 import { usePeerStore } from "./stores/peerStore";
 import { useTransferStore, isActive } from "./stores/transferStore";
@@ -326,6 +327,23 @@ export function App() {
 
   const activeCount = transfers.filter(isActive).length;
 
+  // Pick the most-recent in-flight transfer per peer so each card can
+  // show its progress ring + direction. If a peer is simultaneously
+  // sending and receiving (rare in practice), the newer `started_at`
+  // wins — that's the one the user just initiated and most likely
+  // wants to see progress for.
+  const activeTransfers = useMemo(() => {
+    const map = new Map<string, Transfer>();
+    for (const t of transfers) {
+      if (!isActive(t)) continue;
+      const existing = map.get(t.peer_id);
+      if (!existing || new Date(t.started_at) > new Date(existing.started_at)) {
+        map.set(t.peer_id, t);
+      }
+    }
+    return map;
+  }, [transfers]);
+
   return (
     <>
       <TitleBar onOpenSettings={() => setSettingsOpen(true)} />
@@ -360,6 +378,7 @@ export function App() {
           self={self}
           peers={peers}
           dropTargetPeerId={dropTargetPeerId}
+          activeTransfers={activeTransfers}
           onPickFilesForPeer={handlePickFilesForPeer}
         />
       </main>

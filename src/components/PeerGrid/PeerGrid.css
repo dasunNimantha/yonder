@@ -183,11 +183,67 @@
   border-color: var(--accent);
   box-shadow: var(--shadow-accent);
 }
+.peer-card.is-transferring {
+  border-color: var(--accent);
+  animation: peer-card-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes peer-card-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px var(--accent-soft), 0 0 12px var(--accent-glow);
+  }
+  50% {
+    box-shadow: 0 0 0 1px var(--accent-soft), 0 0 24px var(--accent-glow);
+  }
+}
+
+.peer-avatar-wrap {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.peer-progress-ring {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: peer-progress-ring-spin 6s linear infinite;
+}
+
+.peer-progress-track {
+  fill: none;
+  stroke: var(--bg-hover);
+  stroke-width: 3;
+}
+
+.peer-progress-fill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.18s linear;
+}
+.peer-progress-fill.direction-send {
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+.peer-progress-fill.direction-receive {
+  stroke: var(--success);
+  filter: drop-shadow(0 0 6px rgba(61, 214, 140, 0.45));
+}
+
+@keyframes peer-progress-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .peer-avatar {
   position: relative;
-  width: 64px;
-  height: 64px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -196,7 +252,6 @@
   font-weight: 700;
   font-size: 22px;
   letter-spacing: 0.02em;
-  margin-bottom: 8px;
   box-shadow: var(--shadow-sm);
 }
 

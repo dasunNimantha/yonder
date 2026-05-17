@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Radio, RefreshCcw } from "lucide-react";
 
-import type { Identity, Peer } from "../../lib/tauri";
+import type { Identity, Peer, Transfer } from "../../lib/tauri";
 import { PeerCard } from "./PeerCard";
 import "./PeerGrid.css";
 
@@ -9,10 +9,19 @@ interface PeerGridProps {
   self: Identity | null;
   peers: Peer[];
   dropTargetPeerId: string | null;
+  /** Map of peer.id -> most recent in-flight transfer, used to drive
+   *  the per-card transfer animation. */
+  activeTransfers: Map<string, Transfer>;
   onPickFilesForPeer: (peer: Peer) => void;
 }
 
-export function PeerGrid({ self, peers, dropTargetPeerId, onPickFilesForPeer }: PeerGridProps) {
+export function PeerGrid({
+  self,
+  peers,
+  dropTargetPeerId,
+  activeTransfers,
+  onPickFilesForPeer,
+}: PeerGridProps) {
   return (
     <div className="peer-grid-area">
       <SelfHero self={self} peerCount={peers.length} />
@@ -57,6 +66,7 @@ export function PeerGrid({ self, peers, dropTargetPeerId, onPickFilesForPeer }: 
                 <PeerCard
                   peer={peer}
                   isDropTarget={dropTargetPeerId === peer.id}
+                  activeTransfer={activeTransfers.get(peer.id)}
                   onClick={() => onPickFilesForPeer(peer)}
                 />
               </motion.div>

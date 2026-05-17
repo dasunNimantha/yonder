@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use iroh::address_lookup::UserData;
 use iroh::endpoint::presets;
@@ -6,8 +10,18 @@ use iroh_mdns_address_lookup::{DiscoveryEvent, MdnsAddressLookup};
 use n0_future::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
+use tokio::task::JoinHandle;
 
 use crate::state::{AppState, Peer};
+
+/// Grace period before a `peer-removed` event is actually emitted to
+/// the frontend after iroh's mDNS reports the peer as expired. mDNS
+/// announcements get dropped on contended Wi-Fi all the time, and
+/// iroh will fire `Expired` followed by `Discovered` seconds later
+/// for the same node — without this debounce the peer card flickers
+/// out and back in. If the peer doesn't reappear within the window
+/// we then emit `peer-removed` normally.
+const PEER_REMOVAL_GRACE: Duration = Duration::from_secs(4);
 
 /// ALPN identifier for the file-transfer protocol. Bumping the suffix
 /// (`yonder/1`, …) lets us evolve the protocol without breaking older
@@ -95,12 +109,25 @@ pub async fn run_discovery_loop(handle: AppHandle, state: AppState, mdns: MdnsAd
     let our_id = state.identity().id;
     let mut events = mdns.subscribe().await;
 
+    // Pending peer-removal tasks keyed by endpoint id. We schedule a
+    // deferred removal on `Expired`; if a `Discovered` for the same
+    // id arrives before the timer fires, we abort the task so the
+    // peer never appears to leave from the UI's perspective.
+    let pending_removals: Arc<Mutex<HashMap<String, JoinHandle<()>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
+
     while let Some(event) = events.next().await {
         match event {
             DiscoveryEvent::Discovered { endpoint_info, .. } => {
                 let id = endpoint_info.endpoint_id.to_string();
                 if id == our_id {
                     continue; // We don't want to see ourselves
+                }
+                // Cancel any pending removal for this peer — they're
+                // back before we told the UI they left.
+                if let Some(handle) = pending_removals.lock().unwrap().remove(&id) {
+                    handle.abort();
+                    log::debug!("peer {id} reappeared during grace period; removal cancelled");
                 }
                 let user_data = endpoint_info
                     .user_data()
@@ -136,14 +163,49 @@ pub async fn run_discovery_loop(handle: AppHandle, state: AppState, mdns: MdnsAd
                 if id == our_id {
                     continue;
                 }
-                if state.remove_peer(&id).is_some() {
-                    log::info!("peer expired: {id}");
-                    let _ = handle.emit("peer-removed", PeerRemoved { id });
-                }
+                // Defer the actual removal. mDNS announcements get
+                // dropped on noisy Wi-Fi; if this is just a missed
+                // beat the peer will be back well within the grace
+                // period and the Discovered branch above will cancel
+                // this task.
+                schedule_peer_removal(
+                    handle.clone(),
+                    state.clone(),
+                    Arc::clone(&pending_removals),
+                    id,
+                );
             }
             _ => {}
         }
     }
 
     log::info!("mDNS discovery stream closed; exiting discovery loop");
+}
+
+fn schedule_peer_removal(
+    app: AppHandle,
+    state: AppState,
+    pending: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
+    id: String,
+) {
+    let id_for_task = id.clone();
+    let pending_for_task = Arc::clone(&pending);
+    // `tokio::spawn` is safe here because the discovery loop itself
+    // runs inside Tauri's managed tokio runtime, so we always have a
+    // reactor in scope when this fn is called.
+    let task = tokio::spawn(async move {
+        tokio::time::sleep(PEER_REMOVAL_GRACE).await;
+        // Self-clean from the pending map first so a later Discovered
+        // arriving exactly here doesn't try to abort a finished task.
+        pending_for_task.lock().unwrap().remove(&id_for_task);
+        if state.remove_peer(&id_for_task).is_some() {
+            log::info!("peer expired: {id_for_task}");
+            let _ = app.emit("peer-removed", PeerRemoved { id: id_for_task });
+        }
+    });
+    // Newer pending removal supersedes an older one (which would be
+    // stale — the peer expired, came back, expired again).
+    if let Some(prev) = pending.lock().unwrap().insert(id, task) {
+        prev.abort();
+    }
 }

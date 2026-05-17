@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownToLine,
@@ -101,6 +101,77 @@ function Section({
   );
 }
 
+/**
+ * "Right-now" throughput estimator. We sample (bytes, timestamp) on
+ * each progress event and feed an exponential moving average (alpha
+ * = 0.3) of `delta_bytes / delta_seconds` so the displayed number
+ * tracks the *current* rate, not the cumulative average since the
+ * transfer started. For terminal states we collapse to the simple
+ * total-bytes / total-elapsed average so the row keeps showing a
+ * sensible last value.
+ */
+function useLiveSpeed(transfer: Transfer): number {
+  const [smoothed, setSmoothed] = useState(0);
+  const sampleRef = useRef({ bytes: 0, ts: 0, ema: 0, initialised: false });
+
+  useEffect(() => {
+    if (!isActive(transfer)) {
+      // Finished / cancelled / failed — show the overall average so
+      // the row's final value is honest about how the transfer went.
+      if (transfer.finished_at) {
+        const start = new Date(transfer.started_at).getTime();
+        const end = new Date(transfer.finished_at).getTime();
+        const elapsed = Math.max(0.001, (end - start) / 1000);
+        setSmoothed(transfer.bytes_done / elapsed);
+      }
+      return;
+    }
+
+    const now = Date.now();
+    if (!sampleRef.current.initialised) {
+      sampleRef.current = {
+        bytes: transfer.bytes_done,
+        ts: now,
+        ema: 0,
+        initialised: true,
+      };
+      return;
+    }
+
+    const elapsedSec = (now - sampleRef.current.ts) / 1000;
+    // Need at least 100ms between samples to avoid wild numbers when
+    // two progress events come back-to-back.
+    if (elapsedSec < 0.1) return;
+
+    const deltaBytes = transfer.bytes_done - sampleRef.current.bytes;
+    if (deltaBytes < 0) {
+      // Should not happen, but guard against a transfer-reset edge.
+      sampleRef.current = {
+        bytes: transfer.bytes_done,
+        ts: now,
+        ema: 0,
+        initialised: true,
+      };
+      setSmoothed(0);
+      return;
+    }
+    const instant = deltaBytes / elapsedSec;
+    // First real sample seeds the EMA; subsequent ones blend.
+    const alpha = sampleRef.current.ema === 0 ? 1 : 0.3;
+    const ema = sampleRef.current.ema * (1 - alpha) + instant * alpha;
+
+    sampleRef.current = { bytes: transfer.bytes_done, ts: now, ema, initialised: true };
+    setSmoothed(ema);
+  }, [
+    transfer.bytes_done,
+    transfer.status,
+    transfer.started_at,
+    transfer.finished_at,
+  ]);
+
+  return smoothed;
+}
+
 function TransferRow({ transfer }: { transfer: Transfer }) {
   const pct = formatPercent(transfer.bytes_done, transfer.total_bytes);
   const directionIcon =
@@ -115,21 +186,7 @@ function TransferRow({ transfer }: { transfer: Transfer }) {
       : `${transfer.files.length} files`;
   const sizeLine = `${formatBytes(transfer.bytes_done)} / ${formatBytes(transfer.total_bytes)}`;
 
-  // Compute average throughput. We use the simple
-  // bytes / wall-clock seconds estimator: progress events arrive
-  // ~10 Hz so the value visibly updates without us needing to
-  // maintain a rolling window. For terminal states we show the
-  // overall average (started_at -> finished_at) so the last value
-  // stays meaningful.
-  const speedBps = (() => {
-    if (!isActive(transfer) && !transfer.finished_at) return 0;
-    const start = new Date(transfer.started_at).getTime();
-    const end = transfer.finished_at
-      ? new Date(transfer.finished_at).getTime()
-      : Date.now();
-    const elapsedSec = Math.max(0.001, (end - start) / 1000);
-    return transfer.bytes_done / elapsedSec;
-  })();
+  const speedBps = useLiveSpeed(transfer);
 
   const statusBadge = (() => {
     switch (transfer.status) {
