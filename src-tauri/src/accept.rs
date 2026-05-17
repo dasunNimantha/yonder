@@ -7,7 +7,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use iroh::endpoint::{Connection, Endpoint, RecvStream, SendStream};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition};
+use tauri::{AppHandle, Emitter, LogicalPosition, Manager};
 use tauri_plugin_notification::NotificationExt;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -284,8 +284,8 @@ fn show_approval_popup(app: &AppHandle) {
     };
 
     // Logical dimensions match the `width`/`height` in tauri.conf.json.
-    const WIN_W: f64 = 380.0;
-    const WIN_H: f64 = 200.0;
+    const WIN_W: f64 = 420.0;
+    const WIN_H: f64 = 220.0;
     const MARGIN: f64 = 16.0;
 
     // Prefer the monitor the window is currently on; fall back to the
@@ -301,12 +301,18 @@ fn show_approval_popup(app: &AppHandle) {
         let scale = monitor.scale_factor();
         let size = monitor.size();
         let pos = monitor.position();
-        let win_w_px = WIN_W * scale;
-        let win_h_px = WIN_H * scale;
-        let margin_px = MARGIN * scale;
-        let x = pos.x as f64 + size.width as f64 - win_w_px - margin_px;
-        let y = pos.y as f64 + size.height as f64 - win_h_px - margin_px;
-        let _ = window.set_position(PhysicalPosition::new(x, y));
+        // Monitor values are physical pixels; the configured window
+        // dimensions are logical. Convert the monitor bounds to
+        // logical coordinates before positioning. Mixing physical
+        // monitor size with logical window size is what caused the
+        // previous popup to be pushed partly off-screen on HiDPI.
+        let left = pos.x as f64 / scale;
+        let top = pos.y as f64 / scale;
+        let width = size.width as f64 / scale;
+        let height = size.height as f64 / scale;
+        let x = left + width - WIN_W - MARGIN;
+        let y = top + height - WIN_H - MARGIN;
+        let _ = window.set_position(LogicalPosition::new(x, y));
     }
     let _ = window.show();
     let _ = window.set_focus();

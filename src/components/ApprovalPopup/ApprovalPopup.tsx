@@ -152,37 +152,46 @@ export function ApprovalPopup() {
     pending.files.length === 1
       ? pending.files[0]!.name
       : `${pending.files.length} files`;
+  const fileCountLabel =
+    pending.files.length === 1 ? "1 file" : `${pending.files.length} files`;
 
   return (
     <div className="approval-popup" data-tauri-drag-region>
-      <span className="approval-accent" aria-hidden="true" />
+      <div className="approval-glow" aria-hidden="true" />
 
-      <div
-        className="approval-avatar"
-        style={{
-          background: `linear-gradient(135deg,
-            hsl(${hue}deg 70% 55%) 0%,
-            hsl(${(hue + 40) % 360}deg 70% 45%) 100%)`,
-        }}
-        aria-hidden="true"
-      >
-        {monogram(pending.peer_name, "?")}
-        <span className="approval-avatar-badge">
-          {peer ? osIcon(peer.os) : <ArrowDownToLine size={11} />}
-        </span>
+      <div className="approval-header">
+        <div
+          className="approval-avatar"
+          style={{
+            background: `linear-gradient(135deg,
+              hsl(${hue}deg 70% 55%) 0%,
+              hsl(${(hue + 40) % 360}deg 70% 45%) 100%)`,
+          }}
+          aria-hidden="true"
+        >
+          {monogram(pending.peer_name, "?")}
+          <span className="approval-avatar-badge">
+            {peer ? osIcon(peer.os) : <ArrowDownToLine size={11} />}
+          </span>
+        </div>
+
+        <div className="approval-heading">
+          <div className="approval-eyebrow">Incoming transfer</div>
+          <div className="approval-title" title={pending.peer_name}>
+            <strong>{pending.peer_name}</strong>
+          </div>
+        </div>
       </div>
 
-      <div className="approval-body">
-        <div className="approval-title" title={pending.peer_name}>
-          <strong>{pending.peer_name}</strong>
-          <span className="approval-subtitle"> wants to send</span>
+      <div className="approval-file-card" title={fileSummary}>
+        <div className="approval-file-icon" aria-hidden="true">
+          <ArrowDownToLine size={16} />
         </div>
-        <div className="approval-detail" title={fileSummary}>
+        <div className="approval-file-text">
           <span className="approval-filename">{fileSummary}</span>
-          <span className="approval-dot" aria-hidden="true">
-            ·
+          <span className="approval-file-meta">
+            {fileCountLabel} · {formatBytes(pending.total_bytes)}
           </span>
-          <span className="approval-size">{formatBytes(pending.total_bytes)}</span>
         </div>
       </div>
 
@@ -195,6 +204,7 @@ export function ApprovalPopup() {
           aria-label="Reject"
         >
           <X size={14} strokeWidth={2.2} />
+          <span>Decline</span>
         </button>
         <button
           className="approval-btn approval-btn-accept"

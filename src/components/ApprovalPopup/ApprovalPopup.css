@@ -1,6 +1,5 @@
-/* The popup window is transparent (see tauri.conf.json) so the card
- * itself floats inside with a real drop shadow — matches the "toast"
- * feel of macOS / Windows 11 notifications. */
+/* The popup window is transparent (see tauri.conf.json), so the card
+ * itself floats inside with a shadow. Keep all outside chrome clear. */
 
 html[data-window="approval"],
 html[data-window="approval"] body,
@@ -13,51 +12,54 @@ html[data-window="approval"] {
 }
 
 html[data-window="approval"] #root {
-  height: 100vh;
   width: 100vw;
-  padding: 12px;
+  height: 100vh;
+  padding: 10px;
   box-sizing: border-box;
 }
 
 .approval-popup {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 14px 14px 18px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  /* Stronger shadow than --shadow-lg — this lives outside the main
-   * window and needs to read as floating regardless of what's behind
-   * it on the desktop. */
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 16px 48px rgba(0, 0, 0, 0.5),
-    0 4px 12px rgba(0, 0, 0, 0.4);
-  font-family: var(--font-sans);
-  color: var(--text-primary);
   height: 100%;
   box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 12px;
+  padding: 16px;
   overflow: hidden;
-  animation: approval-enter 0.28s cubic-bezier(0.16, 0.92, 0.24, 1.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(99, 152, 255, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(36, 36, 48, 0.98), rgba(27, 27, 36, 0.98));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 18px 48px rgba(0, 0, 0, 0.5),
+    0 6px 16px rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  animation: approval-enter 0.26s cubic-bezier(0.16, 0.92, 0.24, 1.07);
 }
 
 .approval-popup.empty {
   display: none;
 }
 
-/* Accent stripe down the left edge — the immediate "something for you"
- * signal that doesn't require reading text. */
-.approval-accent {
+.approval-glow {
   position: absolute;
-  left: 0;
-  top: 14px;
-  bottom: 14px;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
-  background: linear-gradient(180deg, var(--accent), var(--accent-hover));
-  box-shadow: 0 0 8px var(--accent-glow);
+  inset: auto -20px -80px 120px;
+  height: 140px;
+  pointer-events: none;
+  background: radial-gradient(circle, var(--accent-glow), transparent 62%);
+  opacity: 0.55;
+}
+
+.approval-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
 .approval-avatar {
@@ -73,140 +75,169 @@ html[data-window="approval"] #root {
   font-weight: 700;
   font-size: 16px;
   letter-spacing: 0.02em;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
 .approval-avatar-badge {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 18px;
-  height: 18px;
+  right: -3px;
+  bottom: -3px;
+  width: 19px;
+  height: 19px;
   border-radius: 50%;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
 }
 
-.approval-body {
-  flex: 1;
+.approval-heading {
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
+  flex: 1;
+}
+
+.approval-eyebrow {
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .approval-title {
-  font-size: 14.5px;
+  min-width: 0;
+  font-size: 16px;
   line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .approval-title strong {
   color: var(--accent);
-  font-weight: 600;
-}
-.approval-subtitle {
-  color: var(--text-secondary);
-  font-weight: 400;
+  font-weight: 700;
 }
 
-.approval-detail {
-  font-size: 12.5px;
-  color: var(--text-secondary);
+.approval-file-card {
+  position: relative;
+  min-width: 0;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.035);
 }
-.approval-filename {
-  flex: 1;
+
+.approval-file-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.approval-file-text {
   min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.approval-filename {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text-secondary);
 }
-.approval-dot {
+
+.approval-file-meta {
   color: var(--text-muted);
-  flex-shrink: 0;
-}
-.approval-size {
-  color: var(--text-muted);
-  flex-shrink: 0;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
 .approval-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 10px;
 }
 
 .approval-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 10px;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
   border: 1px solid var(--border);
-  background: var(--bg-surface);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
   color: var(--text-primary);
   cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
   transition: background 0.14s, border-color 0.14s, box-shadow 0.14s, transform 0.1s;
 }
+
 .approval-btn:hover:not(:disabled) {
   background: var(--bg-hover);
 }
+
 .approval-btn:active:not(:disabled) {
   transform: translateY(1px);
 }
+
 .approval-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
 .approval-btn-reject {
-  width: 36px;
-  height: 36px;
-  padding: 0;
   color: var(--text-secondary);
-  border-radius: 50%;
 }
+
 .approval-btn-reject:hover:not(:disabled) {
-  background: rgba(240, 100, 100, 0.16);
   color: var(--error);
   border-color: rgba(240, 100, 100, 0.4);
+  background: rgba(240, 100, 100, 0.14);
 }
 
 .approval-btn-accept {
-  background: var(--accent);
   color: var(--text-inverse);
   border-color: var(--accent);
-  box-shadow: 0 4px 12px var(--accent-glow);
+  background: var(--accent);
+  box-shadow: 0 8px 20px var(--accent-glow);
 }
+
 .approval-btn-accept:hover:not(:disabled) {
-  background: var(--accent-hover);
   border-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
+
 .approval-btn-accept:focus-visible {
   outline: none;
-  box-shadow: 0 4px 12px var(--accent-glow), 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 8px 20px var(--accent-glow), 0 0 0 3px var(--accent-soft);
 }
 
 @keyframes approval-enter {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.96);
+    transform: translateY(18px) scale(0.97);
   }
   to {
     opacity: 1;
