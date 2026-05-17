@@ -153,3 +153,45 @@
 .app-main.with-side-panel {
   padding-right: 372px;
 }
+
+/* ── Light theme corrections ────────────────────────────────────
+ * The dashboard uses a "glass" treatment that looks great in dark
+ * mode, but raw dark rgba layers turn muddy in light mode. These
+ * overrides keep the same layout while switching the materials to
+ * crisp white/blue surfaces with readable contrast. */
+
+html[data-theme="light"] .app-toolbar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 248, 255, 0.86)),
+    rgba(255, 255, 255, 0.92);
+  border-bottom-color: rgba(39, 55, 90, 0.1);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
+
+html[data-theme="light"] .app-toolbar-btn {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(39, 55, 90, 0.1);
+  box-shadow: 0 1px 2px rgba(30, 45, 80, 0.04);
+}
+
+html[data-theme="light"] .app-toolbar-btn:hover {
+  background: #fff;
+}
+
+html[data-theme="light"] .app-toolbar-btn.active {
+  background: rgba(56, 113, 220, 0.1);
+  border-color: rgba(56, 113, 220, 0.22);
+}
+
+html[data-theme="light"] .app-main {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(56, 113, 220, 0.12), transparent 36%),
+    radial-gradient(circle at 0% 100%, rgba(21, 163, 100, 0.06), transparent 30%),
+    linear-gradient(180deg, #fbfcff 0%, #f4f7fc 100%);
+}
+
+html[data-theme="light"] .app-main::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), transparent 170px),
+    radial-gradient(circle at center, transparent 0%, rgba(30, 45, 80, 0.035) 100%);
+}
