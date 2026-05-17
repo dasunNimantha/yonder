@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
@@ -44,6 +45,10 @@ struct Inner {
     /// Pending oneshot senders keyed by transfer id; the QUIC accept
     /// handler awaits these to know whether the user accepted.
     pending_approvals: Mutex<HashMap<String, oneshot::Sender<ApprovalDecision>>>,
+    /// Per-transfer cancellation flags. The send/receive loops check
+    /// this between chunks; flipping it via `signal_cancel` causes
+    /// the next chunk read/write to bail with a "cancelled" error.
+    cancel_flags: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
 impl AppState {
@@ -55,6 +60,7 @@ impl AppState {
                 peers: Mutex::new(HashMap::new()),
                 transfers: Mutex::new(HashMap::new()),
                 pending_approvals: Mutex::new(HashMap::new()),
+                cancel_flags: Mutex::new(HashMap::new()),
             }),
         }
     }
@@ -150,5 +156,35 @@ impl AppState {
             .lock()
             .unwrap()
             .remove(transfer_id)
+    }
+
+    /// Allocate and register a cancellation flag for a new transfer.
+    /// The streaming loops clone this Arc and poll it between chunks.
+    pub fn register_cancel_flag(&self, transfer_id: &str) -> Arc<AtomicBool> {
+        let flag = Arc::new(AtomicBool::new(false));
+        self.inner
+            .cancel_flags
+            .lock()
+            .unwrap()
+            .insert(transfer_id.to_string(), Arc::clone(&flag));
+        flag
+    }
+
+    /// Trip the cancellation flag for a transfer if one is registered.
+    /// Returns true if a flag existed (i.e. there was an in-flight
+    /// transfer to cancel).
+    pub fn signal_cancel(&self, transfer_id: &str) -> bool {
+        if let Some(flag) = self.inner.cancel_flags.lock().unwrap().get(transfer_id) {
+            flag.store(true, Ordering::Relaxed);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Drop the cancel flag after a transfer reaches a terminal state
+    /// so we don't leak handles forever.
+    pub fn forget_cancel_flag(&self, transfer_id: &str) {
+        self.inner.cancel_flags.lock().unwrap().remove(transfer_id);
     }
 }

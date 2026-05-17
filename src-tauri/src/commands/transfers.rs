@@ -80,9 +80,23 @@ pub fn cancel_transfer(
     state: State<'_, AppState>,
     transfer_id: String,
 ) -> Result<(), String> {
-    // For now "cancel" is a hard mark; the in-flight stream is not
-    // aborted (would require carrying a CancellationToken per transfer
-    // — a future improvement). The frontend will hide the row.
+    // 1. Flip the per-transfer cancellation flag. The streaming
+    //    loops in client.rs / accept.rs check this between every
+    //    chunk and bail out cleanly, releasing the QUIC stream so
+    //    the peer sees the cancellation rather than a stuck stream.
+    state.signal_cancel(&transfer_id);
+
+    // 2. If this transfer is sitting in the approval gate on the
+    //    receive side, resolve the oneshot with Reject so the
+    //    accept handler doesn't wait forever for a user decision
+    //    that's no longer coming.
+    if let Some(sender) = state.take_pending_approval(&transfer_id) {
+        let _ = sender.send(ApprovalDecision::Reject);
+    }
+
+    // 3. Mark the transfer Cancelled BEFORE the streaming loop has
+    //    a chance to set Failed. Subsequent transitions in the loop
+    //    error path see Cancelled and leave it alone.
     let _ = state.update_transfer(&transfer_id, |t| {
         if matches!(
             t.status,

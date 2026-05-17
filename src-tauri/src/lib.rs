@@ -27,6 +27,20 @@ pub fn run() {
     let app_state = AppState::new(settings.clone(), identity.clone());
 
     tauri::Builder::default()
+        // The single-instance plugin must be the very first plugin
+        // installed so the handshake completes before any other
+        // plugin (in particular the autostart plugin) has a chance
+        // to grab process-wide resources. When a second `yonder`
+        // command is launched, this callback fires in the *already
+        // running* instance — we focus that window and let the new
+        // process exit.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())

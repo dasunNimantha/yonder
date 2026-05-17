@@ -1,0 +1,143 @@
+/* The popup window itself is small (380x200) and frameless. Fill it
+ * edge-to-edge with a single card-ish surface so the whole window
+ * looks like a notification toast. */
+
+html,
+body,
+#root {
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+}
+
+.approval-popup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  height: 100%;
+  box-sizing: border-box;
+  animation: approval-slide-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.approval-popup.empty {
+  /* nothing to show; the window is being hidden by Rust */
+  display: none;
+}
+
+.approval-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.approval-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.approval-title {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.approval-title strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.approval-detail {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.approval-detail span {
+  color: var(--text-muted);
+}
+
+.approval-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.approval-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.approval-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.approval-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.approval-btn-reject {
+  width: 36px;
+  padding: 8px;
+  color: var(--text-secondary);
+}
+.approval-btn-reject:hover:not(:disabled) {
+  background: rgba(240, 100, 100, 0.16);
+  color: var(--error);
+  border-color: rgba(240, 100, 100, 0.4);
+}
+
+.approval-btn-accept {
+  background: var(--accent);
+  color: var(--text-inverse);
+  border-color: var(--accent);
+}
+.approval-btn-accept:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.approval-btn-accept:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+
+@keyframes approval-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

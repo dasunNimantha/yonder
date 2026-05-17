@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
@@ -49,6 +50,7 @@ pub fn spawn_send(
     let session = transfer_id.clone();
     let handle_for_task = handle.clone();
     let state_for_task = state.clone();
+    let cancel_flag = state.register_cancel_flag(&session);
 
     // `spawn_send` is invoked from Tauri's *sync* command handler,
     // which runs on Tauri's blocking-thread pool — there's no tokio
@@ -57,7 +59,7 @@ pub fn spawn_send(
     // is runtime-agnostic and dispatches onto Tauri's managed tokio
     // runtime no matter where it's called from.
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = do_send(
+        let result = do_send(
             handle_for_task.clone(),
             state_for_task.clone(),
             endpoint,
@@ -65,19 +67,30 @@ pub fn spawn_send(
             session.clone(),
             paths,
             metas,
+            Arc::clone(&cancel_flag),
         )
-        .await
-        {
-            log::error!("send failed: {e:#}");
-            let _ = state_for_task.update_transfer(&session, |t| {
-                t.status = TransferStatus::Failed;
-                t.error = Some(e.to_string());
-                t.finished_at = Some(Utc::now());
-            });
-            if let Some(t) = state_for_task.get_transfer(&session) {
-                let _ = handle_for_task.emit("transfer-finished", &t);
+        .await;
+
+        if let Err(e) = result {
+            // If the user cancelled the transfer the status was
+            // already updated by the `cancel_transfer` command;
+            // don't overwrite Cancelled with Failed in that case.
+            let current_status = state_for_task.get_transfer(&session).map(|t| t.status);
+            if current_status == Some(TransferStatus::Cancelled) {
+                log::info!("send cancelled by user: {session}");
+            } else {
+                log::error!("send failed: {e:#}");
+                let _ = state_for_task.update_transfer(&session, |t| {
+                    t.status = TransferStatus::Failed;
+                    t.error = Some(e.to_string());
+                    t.finished_at = Some(Utc::now());
+                });
+                if let Some(t) = state_for_task.get_transfer(&session) {
+                    let _ = handle_for_task.emit("transfer-finished", &t);
+                }
             }
         }
+        state_for_task.forget_cancel_flag(&session);
     });
 
     Ok(transfer_id)
@@ -92,6 +105,7 @@ async fn do_send(
     session: String,
     paths: Vec<PathBuf>,
     metas: Vec<FileMeta>,
+    cancel: Arc<AtomicBool>,
 ) -> Result<()> {
     let endpoint_id = identity::parse_endpoint_id(&peer.id)?;
     let addr = EndpointAddr::new(endpoint_id);
@@ -134,6 +148,7 @@ async fn do_send(
             &session,
             &state,
             &handle,
+            &cancel,
         )
         .await?;
     }
@@ -203,6 +218,7 @@ async fn send_file(
     session: &str,
     state: &AppState,
     app: &AppHandle,
+    cancel: &Arc<AtomicBool>,
 ) -> Result<()> {
     let mut file = File::open(path)
         .await
@@ -210,6 +226,12 @@ async fn send_file(
     let mut buf = vec![0u8; 64 * 1024];
     let mut remaining = meta.size;
     while remaining > 0 {
+        if cancel.load(Ordering::Relaxed) {
+            // Reset our QUIC send stream so the receiver also tears
+            // down cleanly instead of seeing a stalled half-stream.
+            let _ = send.reset(0u32.into());
+            return Err(anyhow!("cancelled by user"));
+        }
         let want = remaining.min(buf.len() as u64) as usize;
         let n = file.read(&mut buf[..want]).await.context("file read")?;
         if n == 0 {
