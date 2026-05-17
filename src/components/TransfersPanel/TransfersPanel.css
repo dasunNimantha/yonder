@@ -21,7 +21,7 @@
 }
 
 .transfers-panel-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -63,7 +63,7 @@
 }
 
 .transfers-section-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -78,7 +78,7 @@
 }
 
 .transfers-empty {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-muted);
   padding: 8px 4px;
 }
@@ -118,7 +118,7 @@
 
 .transfer-peer {
   flex: 1;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -130,7 +130,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   padding: 2px 7px;
   border-radius: var(--radius-pill);
@@ -159,7 +159,7 @@
 }
 
 .transfer-files {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -193,7 +193,7 @@
 .transfer-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -222,7 +222,7 @@
 }
 
 .transfer-error {
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--error);
   background: rgba(240, 100, 100, 0.08);
   border-radius: var(--radius-sm);

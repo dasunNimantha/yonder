@@ -35,7 +35,7 @@
 }
 
 .receive-prompt-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--text-primary);
   line-height: 1.5;
@@ -46,7 +46,7 @@
 
 .receive-prompt-size {
   margin-top: 4px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-muted);
 }
 
@@ -70,7 +70,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-secondary);
 }
 
@@ -86,7 +86,7 @@
 }
 
 .receive-prompt-more {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   text-align: center;
   padding-top: 4px;
@@ -108,7 +108,7 @@
   padding: 10px 14px;
   font: inherit;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--bg-surface);

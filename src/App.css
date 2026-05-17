@@ -6,7 +6,7 @@
   padding: 8px 18px;
   background: var(--bg-titlebar);
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .app-toolbar-left {
@@ -30,7 +30,7 @@
 
 .app-toolbar-id {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: 12px;
   padding: 1px 6px;
   border-radius: var(--radius-pill);
   background: var(--bg-hover);
@@ -49,7 +49,7 @@
   border-radius: var(--radius-pill);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 .app-toolbar-btn:hover {
@@ -65,7 +65,7 @@
 .app-toolbar-badge {
   background: var(--accent);
   color: var(--text-inverse);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: var(--radius-pill);

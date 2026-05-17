@@ -50,7 +50,13 @@ pub fn spawn_send(
     let handle_for_task = handle.clone();
     let state_for_task = state.clone();
 
-    tokio::spawn(async move {
+    // `spawn_send` is invoked from Tauri's *sync* command handler,
+    // which runs on Tauri's blocking-thread pool — there's no tokio
+    // runtime in that thread's task-local context, so `tokio::spawn`
+    // panics with "there is no reactor running". `tauri::async_runtime::spawn`
+    // is runtime-agnostic and dispatches onto Tauri's managed tokio
+    // runtime no matter where it's called from.
+    tauri::async_runtime::spawn(async move {
         if let Err(e) = do_send(
             handle_for_task.clone(),
             state_for_task.clone(),
